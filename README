@@ -1,0 +1,4 @@
+A Lucene query syntax validator, for use in the browser.
+
+Based on the nodejs module at https://github.com/praized/lucene-query-validator
+which is in turn based on Kelvin Tan's Lucene Query Validator.
