@@ -3,8 +3,6 @@
 require(['../luceneValidator'], function(luceneValidator){
     var val = luceneValidator;
 
-    console.log(val);
-
     describe('Lucene Validator', function(){
         it('can remove escapes', function(){
             var query = "\\* foo \\haha";
