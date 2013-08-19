@@ -1,168 +1,161 @@
-"use strict";
-define([], function(){
+define(['underscore'], function(_) {
+  "use strict";
 
-    // Makes wildcard queries case-insensitive if true.
-    // Refer to http://www.mail-archive.com/lucene-user@jakarta.apache.org/msg00646.html
+  function removeEscapes(query) {
+    return query.replace(/\\./g, "");
+  }
 
-    var wildcardCaseInsensitive = true;
+  function checkAllowedCharacters(query) {
+    if (/[^a-zA-Z0-9_+\-:.()\"*?&|!{}\[\]\^~\\@#\/$%'= ]/.test(query)) {
+      return "The allowed characters are a-z A-Z 0-9.  _ + - : () \" & * ? | ! {} [ ] ^ ~ \\ @ = # % $ ' /.";
+    }
+    return false;
+  }
 
-    return {
-        setWildcardCaseInsensitive: function(bool){
-            wildcardCaseInsensitive = bool;
-        },
+  function checkAsterisk(query) {
+    if (/^[\*]*$|[\s]\*|^\*[^\s]/.test(query)) {
+      return "The wildcard (*) character must be preceded by at least one alphabet or number.";
+    }
+    return false;
+  }
 
-        removeEscapes: function(query){
-            return query.replace(/\\./g, "");
-        },
+  function checkAmpersands(query) {
+    // NB: doesn't handle term1 && term2 && term3 in Firebird 0.7
+    var matches = query.match(/[&]{2}/);
+    if (matches && matches.length > 0) {
+      matches = query.match(/^([a-zA-Z0-9_+\-:.()\"*?&|!{}\[\]\^~\\@#\/$%'=]+( && )?[a-zA-Z0-9_+\-:.()\"*?|!{}\[\]\^~\\@#\/$%'=]+[ ]*)+$/); // note missing & in pattern
+      if (!matches) {
+        return "Queries containing the special characters && must be in the form: term1 && term2.";
+      }
+    }
+    return false;
+  }
 
-        checkAllowedCharacters: function(query){
-            if(/[^a-zA-Z0-9_+\-:.()\"*?&|!{}\[\]\^~\\@#\/$%'= ]/.test(query)){
-                return "The allowed characters are a-z A-Z 0-9.  _ + - : () \" & * ? | ! {} [ ] ^ ~ \\ @ = # % $ ' /.";
-            }
-        },
+  function checkCaret(query) {
+    if (/[^\\]\^([^\s]*[^0-9.]+)|[^\\]\^$/.test(query)) {
+      return "The caret (^) character must be preceded by alphanumeric characters and followed by numbers.";
+    }
+    return false;
+  }
 
-        checkAsterisk: function(query){
-            if(/^[\*]*$|[\s]\*|^\*[^\s]/.test(query)){
-                return "The wildcard (*) character must be preceded by at least one alphabet or number.";
-            }
-        },
+  function checkTilde(query) {
+    if (/[^\\]~[^\s]*[^0-9\s]+/.test(query)) {
+      return "The tilde (~) character must be preceded by alphanumeric characters and followed by numbers.";
+    }
+    return false;
+  }
 
-        checkAmpersands: function(query){
-            // NB: doesn't handle term1 && term2 && term3 in Firebird 0.7
-            var matches = query.match(/[&]{2}/);
-            if(matches && matches.length > 0){
-                matches = query.match(/^([a-zA-Z0-9_+\-:.()\"*?&|!{}\[\]\^~\\@#\/$%'=]+( && )?[a-zA-Z0-9_+\-:.()\"*?|!{}\[\]\^~\\@#\/$%'=]+[ ]*)+$/); // note missing & in pattern
-                if(!matches){
-                    return "Queries containing the special characters && must be in the form: term1 && term2.";
-                }
-            }
-        },
+  function checkExclamationMark(query) {
+    // NB: doesn't handle term1 ! term2 ! term3 or term1 !term2
+    if (!/^[^!]*$|^([a-zA-Z0-9_+\-:.()\"*?&|!{}\[\]\^~\\@#\/$%'=]+( ! )?[a-zA-Z0-9_+\-:.()\"*?&|!{}\[\]\^~\\@#\/$%'=]+[ ]*)+$/.test(query)) {
+      return "Queries containing the special character ! must be in the form: term1 ! term2.";
+    }
+    return false;
+  }
 
-        checkCaret: function(query){
-            if(/[^\\]\^([^\s]*[^0-9.]+)|[^\\]\^$/.test(query)){
-                return "The caret (^) character must be preceded by alphanumeric characters and followed by numbers.";
-            }
-        },
+  function checkQuestionMark(query) {
+    if (/^(\?)|([^a-zA-Z0-9_+\-:.()\"*?&|!{}\[\]\^~\\@#\/$%'=]\?+)/.test(query)) {
+      return "The question mark (?) character must be preceded by at least one alphabet or number.";
+    }
+    return false;
+  }
 
-        checkTilde: function(query){
-            if(/[^\\]~[^\s]*[^0-9\s]+/.test(query)){
-                return "The tilde (~) character must be preceded by alphanumeric characters and followed by numbers.";
-            }
-        },
+  function checkParentheses(query) {
+    var matchLeft = query.match(/[(]/g),
+        matchRight = query.match(/[)]/g),
+        countLeft = matchLeft ? matchLeft.length : 0,
+        countRight = matchRight ? matchRight.length : 0;
 
-        checkExclamationMark: function(query){
-            // NB: doesn't handle term1 ! term2 ! term3 or term1 !term2
-            if(!/^[^!]*$|^([a-zA-Z0-9_+\-:.()\"*?&|!{}\[\]\^~\\@#\/$%'=]+( ! )?[a-zA-Z0-9_+\-:.()\"*?&|!{}\[\]\^~\\@#\/$%'=]+[ ]*)+$/.test(query)){
-                return "Queries containing the special character ! must be in the form: term1 ! term2.";
-            }
-        },
+    if (!matchLeft && !matchRight) {
+      return false;
+    }
 
-        checkQuestionMark: function(query){
-            if(/^(\?)|([^a-zA-Z0-9_+\-:.()\"*?&|!{}\[\]\^~\\@#\/$%'=]\?+)/.test(query)){
-                return "The question mark (?) character must be preceded by at least one alphabet or number.";
-            }
-        },
+    if (matchLeft && !matchRight || matchRight && !matchLeft) {
+      return "Parentheses must be closed.";
+    }
 
-        checkParentheses: function(query){
-            var matchLeft = query.match(/[(]/g),
-                matchRight = query.match(/[)]/g),
-                countLeft = matchLeft ? matchLeft.length : 0,
-                countRight = matchRight ? matchRight.length : 0;
+    if (((countLeft + countRight) % 2) > 0 || countLeft != countRight) {
+      return "Parentheses must be closed.";
+    }
 
-            if(!matchLeft && !matchRight){
-                return;
-            }
+    if (/\(\)/.test(query)) {
+      return "Parentheses must contain at least one character.";
+    }
 
-            if(matchLeft && !matchRight || matchRight && !matchLeft){
-                return "Parentheses must be closed.";
-            }
+    return false;
+  }
 
-            if(((countLeft + countRight) % 2) > 0 || countLeft != countRight){
-                return "Parentheses must be closed.";
-            }
+  function checkPlusMinus(query) {
+    if (!/^[^\n+\-]*$|^([+\-]?[a-zA-Z0-9_:.()\"*?&|!{}\[\]\^~\\@#\/$%'=]+[ ]?)+$/.test(query)) {
+      return "'+' and '-' modifiers must be followed by at least one alphabet or number.";
+    }
 
-            if(/\(\)/.test(query)){
-                return"Parentheses must contain at least one character.";
-            }
-        },
+    return false;
+  }
 
-        checkPlusMinus: function(query){
-            if(!/^[^\n+\-]*$|^([+\-]?[a-zA-Z0-9_:.()\"*?&|!{}\[\]\^~\\@#\/$%'=]+[ ]?)+$/.test(query)){
-                return "'+' and '-' modifiers must be followed by at least one alphabet or number.";
-            }
-        },
 
-        checkANDORNOT: function(query){
-            if(!/AND|OR|NOT/.test(query)){
-                return;
-            }
+  function checkANDORNOT(query) {
+    if (!/AND|OR|NOT/.test(query)) {
+      return false;
+    }
 
-            if(!/^([a-zA-Z0-9_+\-:.()\"*?&|!{}\[\]\^~\\@\/#$%'=]+\s*((AND )|(OR )|(AND NOT )|(NOT ))?[a-zA-Z0-9_+\-:.()\"*?&|!{}\[\]\^~\\@\/#$%'=]+[ ]*)+$/.test(query)){
-                return "Queries containing AND/OR/NOT must be in the form: term1 AND|OR|NOT|AND NOT term2";
-            }
+    if (!/^([a-zA-Z0-9_+\-:.()\"*?&|!{}\[\]\^~\\@\/#$%'=]+\s*((AND )|(OR )|(AND NOT )|(NOT ))?[a-zA-Z0-9_+\-:.()\"*?&|!{}\[\]\^~\\@\/#$%'=]+[ ]*)+$/.test(query)) {
+      return "Queries containing AND/OR/NOT must be in the form: term1 AND|OR|NOT|AND NOT term2";
+    }
 
-            if(/^((AND )|(OR )|(AND NOT )|(NOT ))|((AND)|(OR)|(AND NOT )|(NOT))[ ]*$/.test(query)){
-                return "Queries containing AND/OR/NOT must be in the form: term1 AND|OR|NOT|AND NOT term2";
-            }
-        },
+    if (/^((AND )|(OR )|(AND NOT )|(NOT ))|((AND)|(OR)|(AND NOT )|(NOT))[ ]*$/.test(query)) {
+      return "Queries containing AND/OR/NOT must be in the form: term1 AND|OR|NOT|AND NOT term2";
+    }
 
-        checkQuotes: function(query){
-            var matches = query.match(/\"/g),
-                matchCount;
+    return false;
+  }
 
-            if(!matches){
-                return;
-            }
+  function checkQuotes(query) {
+    var matches = query.match(/\"/g),
+        matchCount;
 
-            matchCount = matches.length;
+    if (!matches) {
+      return false;
+    }
 
-            if(matchCount % 2 !== 0){
-                return "Please close all quote (\") marks.";
-            }
+    matchCount = matches.length;
 
-            if(/""/.test(query)){
-                return "Quotes must contain at least one character.";
-            }
-        },
+    if (matchCount % 2 !== 0) {
+      return "Please close all quote (\") marks.";
+    }
 
-        checkColon: function(query){
-            if(/[^\\\s]:[\s]|[^\\\s]:$|[\s][^\\]?:|^[^\\\s]?:/.test(query)){
-                return "Field declarations (:) must be preceded by at least one alphabet or number and followed by at least one alphabet or number.";
-            }
-        },
+    if (/""/.test(query)) {
+      return "Quotes must contain at least one character.";
+    }
+    return false;
+  }
 
-        doCheckLuceneQueryValue: function(query){
-            if(!query){
-                return;
-            }
+  function checkColon(query) {
+    if (/[^\\\s]:[\s]|[^\\\s]:$|[\s][^\\]?:|^[^\\\s]?:/.test(query)) {
+      return "Field declarations (:) must be preceded by at least one alphabet or number and followed by at least one alphabet or number.";
+    }
+    return false;
+  }
 
-            query = this.removeEscapes(query);
+  function validate(query) {
+    if (!query) {
+      return false;
+    }
 
-            var errorMsg,
-                tests = [this.checkAllowedCharacters,this.checkAsterisk,this.checkAmpersands,
-                            this.checkCaret,this.checkTilde,this.checkExclamationMark,
-                            this.checkQuestionMark,this.checkParentheses,this.checkPlusMinus,
-                            this.checkANDORNOT,this.checkQuotes,this.checkColon];
+    query = removeEscapes(query);
 
-            for (var i = tests.length - 1; i >= 0; i--) {
-                errorMsg = tests[i](query);
-                if(errorMsg){
-                    return errorMsg;
-                }
-            }
+    var tests = [checkAllowedCharacters, checkAsterisk, checkAmpersands, checkCaret, checkTilde, checkExclamationMark, checkQuestionMark, checkParentheses, checkPlusMinus, checkANDORNOT, checkQuotes, checkColon];
 
-            if(wildcardCaseInsensitive){
-                if(query.indexOf("*") != -1){
-                    var j = query.indexOf(':');
-                    if(j == -1){
-                        query.value = query.toLowerCase();
-                    } else {
-                        // found a wildcard field search
-                        query.value = query.substring(0, j) + query.substring(j).toLowerCase();
-                    }
-                }
-            }
-        }
-    };
+    var errors = _.chain(tests)
+                  .map(function(test) { return test(query); })
+                  .where(function(r) { return r; })
+                  .value();
+
+    return (errors.length > 0) ? errors : false;
+  }
+
+  return {
+    validate: validate
+  };
 
 });
