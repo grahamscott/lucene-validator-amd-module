@@ -1,5 +1,5 @@
 "use strict";
-define([], function(){
+define(['underscore'], function(_){
 
     return {
         removeEscapes: function(query){
@@ -129,18 +129,17 @@ define([], function(){
 
             query = this.removeEscapes(query);
 
-            var errorMsg,
-                tests = [this.checkAllowedCharacters,this.checkAsterisk,this.checkAmpersands,
+            var tests = [this.checkAllowedCharacters,this.checkAsterisk,this.checkAmpersands,
                             this.checkCaret,this.checkTilde,this.checkExclamationMark,
                             this.checkQuestionMark,this.checkParentheses,this.checkPlusMinus,
                             this.checkANDORNOT,this.checkQuotes,this.checkColon];
 
-            for (var i = tests.length - 1; i >= 0; i--) {
-                errorMsg = tests[i](query);
-                if(errorMsg){
-                    return errorMsg;
-                }
-            }
+            var errors = _.chain(tests)
+                .map(function(test) { return test(query); })
+                .where(function(r) { return r; })
+                .value();
+
+            return (errors.length > 0) ? errors : false;
         }
     };
 
