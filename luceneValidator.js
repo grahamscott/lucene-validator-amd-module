@@ -1,24 +1,23 @@
 "use strict";
 define(['underscore'], function(_){
 
-    return {
-        removeEscapes: function(query){
+        function removeEscapes(query){
             return query.replace(/\\./g, "");
         },
 
-        checkAllowedCharacters: function(query){
+        function checkAllowedCharacters(query){
             if(/[^a-zA-Z0-9_+\-:.()\"*?&|!{}\[\]\^~\\@#\/$%'= ]/.test(query)){
                 return "The allowed characters are a-z A-Z 0-9.  _ + - : () \" & * ? | ! {} [ ] ^ ~ \\ @ = # % $ ' /.";
             }
         },
 
-        checkAsterisk: function(query){
+        function checkAsterisk(query){
             if(/^[\*]*$|[\s]\*|^\*[^\s]/.test(query)){
                 return "The wildcard (*) character must be preceded by at least one alphabet or number.";
             }
         },
 
-        checkAmpersands: function(query){
+        function checkAmpersands(query){
             // NB: doesn't handle term1 && term2 && term3 in Firebird 0.7
             var matches = query.match(/[&]{2}/);
             if(matches && matches.length > 0){
@@ -29,32 +28,32 @@ define(['underscore'], function(_){
             }
         },
 
-        checkCaret: function(query){
+        function checkCaret(query){
             if(/[^\\]\^([^\s]*[^0-9.]+)|[^\\]\^$/.test(query)){
                 return "The caret (^) character must be preceded by alphanumeric characters and followed by numbers.";
             }
         },
 
-        checkTilde: function(query){
+        function checkTilde(query){
             if(/[^\\]~[^\s]*[^0-9\s]+/.test(query)){
                 return "The tilde (~) character must be preceded by alphanumeric characters and followed by numbers.";
             }
         },
 
-        checkExclamationMark: function(query){
+        function checkExclamationMark(query){
             // NB: doesn't handle term1 ! term2 ! term3 or term1 !term2
             if(!/^[^!]*$|^([a-zA-Z0-9_+\-:.()\"*?&|!{}\[\]\^~\\@#\/$%'=]+( ! )?[a-zA-Z0-9_+\-:.()\"*?&|!{}\[\]\^~\\@#\/$%'=]+[ ]*)+$/.test(query)){
                 return "Queries containing the special character ! must be in the form: term1 ! term2.";
             }
         },
 
-        checkQuestionMark: function(query){
+        function checkQuestionMark(query){
             if(/^(\?)|([^a-zA-Z0-9_+\-:.()\"*?&|!{}\[\]\^~\\@#\/$%'=]\?+)/.test(query)){
                 return "The question mark (?) character must be preceded by at least one alphabet or number.";
             }
         },
 
-        checkParentheses: function(query){
+        function checkParentheses(query){
             var matchLeft = query.match(/[(]/g),
                 matchRight = query.match(/[)]/g),
                 countLeft = matchLeft ? matchLeft.length : 0,
@@ -77,13 +76,13 @@ define(['underscore'], function(_){
             }
         },
 
-        checkPlusMinus: function(query){
+        function checkPlusMinus(query){
             if(!/^[^\n+\-]*$|^([+\-]?[a-zA-Z0-9_:.()\"*?&|!{}\[\]\^~\\@#\/$%'=]+[ ]?)+$/.test(query)){
                 return "'+' and '-' modifiers must be followed by at least one alphabet or number.";
             }
         },
 
-        checkANDORNOT: function(query){
+        function checkANDORNOT(query){
             if(!/AND|OR|NOT/.test(query)){
                 return;
             }
@@ -97,7 +96,7 @@ define(['underscore'], function(_){
             }
         },
 
-        checkQuotes: function(query){
+        function checkQuotes(query){
             var matches = query.match(/\"/g),
                 matchCount;
 
@@ -116,23 +115,23 @@ define(['underscore'], function(_){
             }
         },
 
-        checkColon: function(query){
+        function checkColon(query){
             if(/[^\\\s]:[\s]|[^\\\s]:$|[\s][^\\]?:|^[^\\\s]?:/.test(query)){
                 return "Field declarations (:) must be preceded by at least one alphabet or number and followed by at least one alphabet or number.";
             }
         },
 
-        doCheckLuceneQueryValue: function(query){
+        function validateAll(query){
             if(!query){
                 return;
             }
 
-            query = this.removeEscapes(query);
+            query = removeEscapes(query);
 
-            var tests = [this.checkAllowedCharacters,this.checkAsterisk,this.checkAmpersands,
-                            this.checkCaret,this.checkTilde,this.checkExclamationMark,
-                            this.checkQuestionMark,this.checkParentheses,this.checkPlusMinus,
-                            this.checkANDORNOT,this.checkQuotes,this.checkColon];
+            var tests = [checkAllowedCharacters,checkAsterisk,checkAmpersands,
+                            checkCaret,checkTilde,checkExclamationMark,
+                            checkQuestionMark,checkParentheses,checkPlusMinus,
+                            checkANDORNOT,checkQuotes,checkColon];
 
             var errors = _.chain(tests)
                 .map(function(test) { return test(query); })
@@ -141,6 +140,9 @@ define(['underscore'], function(_){
 
             return (errors.length > 0) ? errors : false;
         }
+
+    return {
+        doCheckLuceneQueryValue : validateAll
     };
 
 });
