@@ -3,19 +3,21 @@ define(['underscore'], function(_){
 
         function removeEscapes(query){
             return query.replace(/\\./g, "");
-        },
+        }
 
         function checkAllowedCharacters(query){
             if(/[^a-zA-Z0-9_+\-:.()\"*?&|!{}\[\]\^~\\@#\/$%'= ]/.test(query)){
                 return "The allowed characters are a-z A-Z 0-9.  _ + - : () \" & * ? | ! {} [ ] ^ ~ \\ @ = # % $ ' /.";
             }
-        },
+            return false;
+        }
 
         function checkAsterisk(query){
             if(/^[\*]*$|[\s]\*|^\*[^\s]/.test(query)){
                 return "The wildcard (*) character must be preceded by at least one alphabet or number.";
             }
-        },
+            return false;
+        }
 
         function checkAmpersands(query){
             // NB: doesn't handle term1 && term2 && term3 in Firebird 0.7
@@ -26,32 +28,37 @@ define(['underscore'], function(_){
                     return "Queries containing the special characters && must be in the form: term1 && term2.";
                 }
             }
-        },
+            return false;
+        }
 
         function checkCaret(query){
             if(/[^\\]\^([^\s]*[^0-9.]+)|[^\\]\^$/.test(query)){
                 return "The caret (^) character must be preceded by alphanumeric characters and followed by numbers.";
             }
-        },
+            return false;
+        }
 
         function checkTilde(query){
             if(/[^\\]~[^\s]*[^0-9\s]+/.test(query)){
                 return "The tilde (~) character must be preceded by alphanumeric characters and followed by numbers.";
             }
-        },
+            return false;
+        }
 
         function checkExclamationMark(query){
             // NB: doesn't handle term1 ! term2 ! term3 or term1 !term2
             if(!/^[^!]*$|^([a-zA-Z0-9_+\-:.()\"*?&|!{}\[\]\^~\\@#\/$%'=]+( ! )?[a-zA-Z0-9_+\-:.()\"*?&|!{}\[\]\^~\\@#\/$%'=]+[ ]*)+$/.test(query)){
                 return "Queries containing the special character ! must be in the form: term1 ! term2.";
             }
-        },
+            return false;
+        }
 
         function checkQuestionMark(query){
             if(/^(\?)|([^a-zA-Z0-9_+\-:.()\"*?&|!{}\[\]\^~\\@#\/$%'=]\?+)/.test(query)){
                 return "The question mark (?) character must be preceded by at least one alphabet or number.";
             }
-        },
+            return false;
+        }
 
         function checkParentheses(query){
             var matchLeft = query.match(/[(]/g),
@@ -60,7 +67,7 @@ define(['underscore'], function(_){
                 countRight = matchRight ? matchRight.length : 0;
 
             if(!matchLeft && !matchRight){
-                return;
+                return false;
             }
 
             if(matchLeft && !matchRight || matchRight && !matchLeft){
@@ -74,17 +81,20 @@ define(['underscore'], function(_){
             if(/\(\)/.test(query)){
                 return"Parentheses must contain at least one character.";
             }
-        },
+
+            return false;
+        }
 
         function checkPlusMinus(query){
             if(!/^[^\n+\-]*$|^([+\-]?[a-zA-Z0-9_:.()\"*?&|!{}\[\]\^~\\@#\/$%'=]+[ ]?)+$/.test(query)){
                 return "'+' and '-' modifiers must be followed by at least one alphabet or number.";
             }
-        },
+            return false;
+        }
 
         function checkANDORNOT(query){
             if(!/AND|OR|NOT/.test(query)){
-                return;
+                return false;
             }
 
             if(!/^([a-zA-Z0-9_+\-:.()\"*?&|!{}\[\]\^~\\@\/#$%'=]+\s*((AND )|(OR )|(AND NOT )|(NOT ))?[a-zA-Z0-9_+\-:.()\"*?&|!{}\[\]\^~\\@\/#$%'=]+[ ]*)+$/.test(query)){
@@ -94,14 +104,15 @@ define(['underscore'], function(_){
             if(/^((AND )|(OR )|(AND NOT )|(NOT ))|((AND)|(OR)|(AND NOT )|(NOT))[ ]*$/.test(query)){
                 return "Queries containing AND/OR/NOT must be in the form: term1 AND|OR|NOT|AND NOT term2";
             }
-        },
+            return false;
+        }
 
         function checkQuotes(query){
             var matches = query.match(/\"/g),
                 matchCount;
 
             if(!matches){
-                return;
+                return false;
             }
 
             matchCount = matches.length;
@@ -113,17 +124,18 @@ define(['underscore'], function(_){
             if(/""/.test(query)){
                 return "Quotes must contain at least one character.";
             }
-        },
+        }
 
         function checkColon(query){
             if(/[^\\\s]:[\s]|[^\\\s]:$|[\s][^\\]?:|^[^\\\s]?:/.test(query)){
                 return "Field declarations (:) must be preceded by at least one alphabet or number and followed by at least one alphabet or number.";
             }
-        },
+            return false;
+        }
 
         function validateAll(query){
             if(!query){
-                return;
+                return false;
             }
 
             query = removeEscapes(query);
