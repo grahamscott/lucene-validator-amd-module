@@ -1,16 +1,7 @@
 "use strict";
 define([], function(){
 
-    // Makes wildcard queries case-insensitive if true.
-    // Refer to http://www.mail-archive.com/lucene-user@jakarta.apache.org/msg00646.html
-
-    var wildcardCaseInsensitive = true;
-
     return {
-        setWildcardCaseInsensitive: function(bool){
-            wildcardCaseInsensitive = bool;
-        },
-
         removeEscapes: function(query){
             return query.replace(/\\./g, "");
         },
@@ -148,18 +139,6 @@ define([], function(){
                 errorMsg = tests[i](query);
                 if(errorMsg){
                     return errorMsg;
-                }
-            }
-
-            if(wildcardCaseInsensitive){
-                if(query.indexOf("*") != -1){
-                    var j = query.indexOf(':');
-                    if(j == -1){
-                        query.value = query.toLowerCase();
-                    } else {
-                        // found a wildcard field search
-                        query.value = query.substring(0, j) + query.substring(j).toLowerCase();
-                    }
                 }
             }
         }
