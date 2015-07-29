@@ -101,7 +101,7 @@ define([], function(){
                 return "Queries containing AND/OR/NOT must be in the form: term1 AND|OR|NOT|AND NOT term2";
             }
 
-            if(/^((AND )|(OR )|(AND NOT )|(NOT ))|((AND)|(OR)|(AND NOT )|(NOT))[ ]*$/.test(query)){
+            if(/^((AND )|(OR )|(AND NOT )|(NOT ))|((\bAND)|(\bOR)|(AND NOT )|(\bNOT))[ ]*$/.test(query)){
                 return "Queries containing AND/OR/NOT must be in the form: term1 AND|OR|NOT|AND NOT term2";
             }
         },
